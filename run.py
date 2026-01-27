@@ -1,3 +1,4 @@
+import os
 from database_utils.upload_to_sqlite import upload_to_sqlite
 from excel_utils.excel_file_generator import BasicFileGenerator, CustomFileGenerator, AdvancedFileGenerator, \
     ExcelFileGenerator
@@ -70,7 +71,49 @@ def main():
     project_metadata = parser.parse_file()
     print(project_metadata)
 
-    upload_to_sqlite(project_metadata)
+    project_id = upload_to_sqlite(project_metadata)
+
+    from excel_utils.fill_conditions import fill_conditions_in_worklist   # ← add this import at top if not already present
+    import platform
+    import subprocess
+
+    print("\nGenerating filled worklist template with conditions...")
+
+    try:
+        # Adjust paths/filenames as needed — assuming project.db is at repo root
+        filled_worklist_path = fill_conditions_in_worklist(
+            project_id=project_id,
+            db_path="project.db",
+            template_path=str(TEMPLATES / "worklist_template_blank.xlsx"),
+            output_dir="excel_utils/outputs",
+            output_filename=f"worklist_conditions_project_{project_id}.xlsx"
+        )
+
+        print(f"Worklist saved to: {filled_worklist_path}")
+
+        # Auto-open the filled file (cross-platform)
+        if platform.system() == "Windows":
+            os.startfile(filled_worklist_path)
+        elif platform.system() == "Darwin":  # macOS
+            subprocess.call(["open", filled_worklist_path])
+        else:  # Linux, etc.
+            try:
+                subprocess.call(["xdg-open", filled_worklist_path])
+            except FileNotFoundError:
+                print("Could not auto-open file (xdg-open not found). Please open it manually.")
+
+        print("Worklist template opened for editing.")
+        
+        # if ask_if_done_editing(prompt="Are you finished editing the worklist?"):
+        #     print("Worklist editing complete.")
+        # else:
+        #     print("Continuing without waiting for worklist confirmation...")
+
+    except FileNotFoundError as e:
+        print(f"Missing file: {e}")
+        print("→ Make sure 'project.db' and 'worklist_template_blank.xlsx' exist.")
+    except Exception as e:
+        print(f"Error while preparing/opening worklist: {e}")
 
 
 if __name__ == '__main__':
